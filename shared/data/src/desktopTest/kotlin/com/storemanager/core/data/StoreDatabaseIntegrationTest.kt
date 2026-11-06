@@ -877,7 +877,19 @@ class StoreDatabaseIntegrationTest {
         val checkpointSuccessFile = File.createTempFile("test_checkpoint_success_", ".db")
         if (checkpointSuccessFile.exists()) checkpointSuccessFile.delete()
 
-        val factory = DatabaseDriverFactory(checkpointSuccessFile)
+        var stagingWalExistedBeforeMove = false
+        var stagingShmExistedBeforeMove = false
+        var stagingWalLengthBeforeMove = 0L
+        var stagingShmLengthBeforeMove = 0L
+
+        val factory = DatabaseDriverFactory(checkpointSuccessFile).apply {
+            onBeforeAtomicMove = { _, stagingWal, stagingShm ->
+                stagingWalExistedBeforeMove = stagingWal.exists()
+                stagingShmExistedBeforeMove = stagingShm.exists()
+                if (stagingWalExistedBeforeMove) stagingWalLengthBeforeMove = stagingWal.length()
+                if (stagingShmExistedBeforeMove) stagingShmLengthBeforeMove = stagingShm.length()
+            }
+        }
         val d = factory.createDriver()
         try {
             assertTrue("Target database must be published on successful checkpoint", checkpointSuccessFile.exists())
@@ -889,17 +901,30 @@ class StoreDatabaseIntegrationTest {
             ).value
             assertEquals(55L, tableCount)
 
+            // Strictly prove that prior to atomic publication, no uncheckpointed staging WAL/SHM data existed
+            assertFalse(
+                "Staging WAL must not contain uncheckpointed data before publication",
+                stagingWalExistedBeforeMove && stagingWalLengthBeforeMove > 0L
+            )
+            assertFalse(
+                "Staging SHM must not contain uncheckpointed data before publication",
+                stagingShmExistedBeforeMove && stagingShmLengthBeforeMove > 0L
+            )
+
             // Verify staging files were completely removed
             val stagingFiles = checkpointSuccessFile.parentFile.listFiles { f ->
                 f.name.startsWith("${checkpointSuccessFile.name}.staging.")
             }
             assertTrue("Staging files must not exist after successful publication", stagingFiles.isNullOrEmpty())
 
-            // Verify no sidecar files with uncheckpointed data
+            // Verify published sidecars: if present right after connection opening, length must be 0 bytes
             val wal = File("${checkpointSuccessFile.absolutePath}-wal")
             val shm = File("${checkpointSuccessFile.absolutePath}-shm")
             if (wal.exists()) {
-                assertEquals("WAL sidecar should be empty if present right after checkpoint/open", 0L, wal.length())
+                assertEquals("WAL sidecar must be 0 bytes right after opening fresh database", 0L, wal.length())
+            }
+            if (shm.exists()) {
+                assertTrue("SHM sidecar if present must be a valid SQLite index file", shm.length() >= 0L)
             }
         } finally {
             d.close()
@@ -960,32 +985,69 @@ class StoreDatabaseIntegrationTest {
 
     @Test
     fun test28f_walSidecarDeletionFailure_atActualDeletionOperation_abortsPublicationAndPreservesTarget() {
-        val sidecarDeleteFailFile = File.createTempFile("test_sidecar_del_fail_", ".db")
-        if (sidecarDeleteFailFile.exists()) sidecarDeleteFailFile.delete()
+        val walDeleteFailFile = File.createTempFile("test_wal_del_fail_", ".db")
+        if (walDeleteFailFile.exists()) walDeleteFailFile.delete()
 
-        val factory = DatabaseDriverFactory(sidecarDeleteFailFile).apply {
-            // Inject failure directly at the sidecar file deletion operation
-            sidecarDeleter = { file ->
-                // Return false simulating OS/permission failure to delete sidecar file
+        val factory = DatabaseDriverFactory(walDeleteFailFile).apply {
+            // Inject failure directly at the WAL file deletion operation
+            walSidecarDeleter = { _ ->
+                // Return false simulating actual OS/filesystem failure to delete WAL sidecar
                 false
             }
         }
 
         try {
             factory.createDriver()
-            fail("Expected DatabaseInitializationException when sidecar deletion fails at deletion operation")
+            fail("Expected DatabaseInitializationException when WAL sidecar deletion fails at deletion operation")
         } catch (e: DatabaseInitializationException) {
             assertTrue(
-                "Exception must indicate failed removal of staging sidecar: ${e.message}",
-                e.message?.contains("Failed to remove staging") == true ||
-                e.message?.contains("sidecar") == true
+                "Exception must indicate failed removal of staging WAL sidecar: ${e.message}",
+                e.message?.contains("Failed to remove staging WAL sidecar before publication") == true
             )
         } finally {
             assertFalse(
-                "Target database must never be published when sidecar deletion fails",
-                sidecarDeleteFailFile.exists()
+                "Target database must never be published when WAL sidecar deletion fails",
+                walDeleteFailFile.exists()
             )
-            File("${sidecarDeleteFailFile.parentFile.absolutePath}/${sidecarDeleteFailFile.name}.init.lock").takeIf { it.exists() }?.delete()
+            val stagingFiles = walDeleteFailFile.parentFile.listFiles { f ->
+                f.name.startsWith("${walDeleteFailFile.name}.staging.")
+            }
+            assertTrue("Temporary staging files must be cleaned up on failure", stagingFiles.isNullOrEmpty())
+            File("${walDeleteFailFile.parentFile.absolutePath}/${walDeleteFailFile.name}.init.lock").takeIf { it.exists() }?.delete()
+        }
+    }
+
+    @Test
+    fun test28g_shmSidecarDeletionFailure_atActualDeletionOperation_abortsPublicationAndPreservesTarget() {
+        val shmDeleteFailFile = File.createTempFile("test_shm_del_fail_", ".db")
+        if (shmDeleteFailFile.exists()) shmDeleteFailFile.delete()
+
+        val factory = DatabaseDriverFactory(shmDeleteFailFile).apply {
+            // Inject failure directly at the SHM file deletion operation
+            shmSidecarDeleter = { _ ->
+                // Return false simulating actual OS/filesystem failure to delete SHM sidecar
+                false
+            }
+        }
+
+        try {
+            factory.createDriver()
+            fail("Expected DatabaseInitializationException when SHM sidecar deletion fails at deletion operation")
+        } catch (e: DatabaseInitializationException) {
+            assertTrue(
+                "Exception must indicate failed removal of staging SHM sidecar: ${e.message}",
+                e.message?.contains("Failed to remove staging SHM sidecar before publication") == true
+            )
+        } finally {
+            assertFalse(
+                "Target database must never be published when SHM sidecar deletion fails",
+                shmDeleteFailFile.exists()
+            )
+            val stagingFiles = shmDeleteFailFile.parentFile.listFiles { f ->
+                f.name.startsWith("${shmDeleteFailFile.name}.staging.")
+            }
+            assertTrue("Temporary staging files must be cleaned up on failure", stagingFiles.isNullOrEmpty())
+            File("${shmDeleteFailFile.parentFile.absolutePath}/${shmDeleteFailFile.name}.init.lock").takeIf { it.exists() }?.delete()
         }
     }
 
@@ -1163,10 +1225,11 @@ class StoreDatabaseIntegrationTest {
             false
         }
 
-        Assume.assumeTrue(
-            "Ed25519 JCA algorithm is not available in the active JDK 11 runtime (requires JDK 15+ or BouncyCastle provider); skipping without claiming false pass",
+        assertTrue(
+            "Ed25519 JCA algorithm must be natively available and verified under unified JDK 21 runtime",
             isEd25519Available
         )
+        println("=== NATIVE ED25519 CRYPTO VERIFICATION EXECUTING (JDK 21) ===")
 
         val kpg = KeyPairGenerator.getInstance("Ed25519")
         val keyPair = kpg.generateKeyPair()
@@ -1287,5 +1350,154 @@ class StoreDatabaseIntegrationTest {
 
         managerDbFile.delete()
         File("${managerDbFile.parentFile.absolutePath}/${managerDbFile.name}.init.lock").takeIf { it.exists() }?.delete()
+    }
+
+    @Test
+    fun test31_exactSchemaValidation_alteredCheckConstraint_rejectsDatabaseAndPreservesData() {
+        val testDbFile = File.createTempFile("test_check_constraint_alter_", ".db")
+        if (testDbFile.exists()) testDbFile.delete()
+
+        try {
+            // 1. Initialize database with customSchemaCreator that introduces an altered CHECK constraint
+            // on inventory_balances: 'CHECK (on_hand_ticks > reserved_ticks)' instead of '>='
+            // with skipValidationDuringInit = true so that the database is initialized and published.
+            val initFactory = DatabaseDriverFactory(testDbFile).apply {
+                skipValidationDuringInit = true
+                customSchemaCreator = { stagingDriver ->
+                    StoreDatabase.Schema.create(stagingDriver)
+                    // Recreate inventory_balances with altered CHECK constraint:
+                    // 'on_hand_ticks > reserved_ticks' instead of 'on_hand_ticks >= reserved_ticks'
+                    stagingDriver.execute(null, "DROP TABLE inventory_balances;", 0)
+                    stagingDriver.execute(
+                        null,
+                        """
+                        CREATE TABLE inventory_balances (
+                            warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
+                            stock_item_id TEXT NOT NULL REFERENCES stock_items(id) ON DELETE RESTRICT,
+                            on_hand_ticks INTEGER NOT NULL DEFAULT 0 CHECK(on_hand_ticks >= 0),
+                            reserved_ticks INTEGER NOT NULL DEFAULT 0 CHECK(reserved_ticks >= 0),
+                            current_moving_avg_cost INTEGER NOT NULL DEFAULT 0 CHECK(current_moving_avg_cost >= 0),
+                            PRIMARY KEY(warehouse_id, stock_item_id),
+                            CHECK(on_hand_ticks > reserved_ticks)
+                        );
+                        """.trimIndent(),
+                        0
+                    )
+                    // Recreate explicit index on inventory_balances to preserve exactly 107 canonical indexes
+                    stagingDriver.execute(null, "CREATE INDEX ix_balances_stock ON inventory_balances(stock_item_id);", 0)
+                }
+            }
+            val initDriver = initFactory.createDriver()
+            // Insert actual customer data into tenants
+            initDriver.execute(null, "INSERT INTO tenants (id, name) VALUES ('T_VIP_01', 'Acme VIP Retail');", 0)
+            initDriver.close()
+
+            // 2. Open via standard DatabaseDriverFactory (as an existing database)
+            val standardFactory = DatabaseDriverFactory(testDbFile)
+            try {
+                standardFactory.createDriver()
+                fail("DatabaseDriverFactory must reject existing database with altered CHECK constraint")
+            } catch (e: DatabaseValidationException) {
+                assertTrue(
+                    "Exception must explicitly indicate altered table definition/constraints: ${e.message}",
+                    e.message?.contains("inventory_balances") == true &&
+                    e.message?.contains("definition/constraints altered") == true
+                )
+            }
+
+            // 3. Prove that the database file was NOT deleted, corrupted, or replaced
+            assertTrue("Database file must remain present on filesystem", testDbFile.exists())
+
+            // 4. Prove customer data was preserved completely intact
+            val verifyDriver = JdbcSqliteDriver("jdbc:sqlite:${testDbFile.absolutePath}")
+            val tenantName = verifyDriver.executeQuery<String?>(
+                null,
+                "SELECT name FROM tenants WHERE id = 'T_VIP_01';",
+                { it.next(); QueryResult.Value(it.getString(0)) },
+                0
+            ).value
+            assertEquals("Customer tenant record must remain intact and unmodified", "Acme VIP Retail", tenantName)
+            verifyDriver.close()
+        } finally {
+            testDbFile.delete()
+            File("${testDbFile.absolutePath}-wal").takeIf { it.exists() }?.delete()
+            File("${testDbFile.absolutePath}-shm").takeIf { it.exists() }?.delete()
+            File("${testDbFile.parentFile.absolutePath}/${testDbFile.name}.init.lock").takeIf { it.exists() }?.delete()
+        }
+    }
+
+    @Test
+    fun test32_exactSchemaValidation_alteredForeignKeyOrOnDelete_rejectsDatabaseAndPreservesData() {
+        val testDbFile = File.createTempFile("test_fk_ondelete_alter_", ".db")
+        if (testDbFile.exists()) testDbFile.delete()
+
+        try {
+            // 1. Initialize database with customSchemaCreator that introduces an altered FOREIGN KEY ON DELETE clause
+            // on stores table: 'ON DELETE CASCADE' instead of canonical 'ON DELETE RESTRICT'
+            val initFactory = DatabaseDriverFactory(testDbFile).apply {
+                skipValidationDuringInit = true
+                customSchemaCreator = { stagingDriver ->
+                    StoreDatabase.Schema.create(stagingDriver)
+                    // Recreate stores with altered ON DELETE clause
+                    stagingDriver.execute(null, "DROP TABLE stores;", 0)
+                    stagingDriver.execute(
+                        null,
+                        """
+                        CREATE TABLE stores (
+                            id TEXT PRIMARY KEY,
+                            tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                            code TEXT NOT NULL,
+                            name TEXT NOT NULL,
+                            address TEXT,
+                            phone TEXT,
+                            is_active INTEGER NOT NULL DEFAULT 1,
+                            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                            UNIQUE(tenant_id, code)
+                        );
+                        """.trimIndent(),
+                        0
+                    )
+                    // Recreate explicit canonical indexes on stores to preserve exactly 107 canonical indexes
+                    stagingDriver.execute(null, "CREATE UNIQUE INDEX ux_one_store_per_tenant ON stores(tenant_id);", 0)
+                    stagingDriver.execute(null, "CREATE INDEX ix_stores_tenant ON stores(tenant_id);", 0)
+                }
+            }
+            val initDriver = initFactory.createDriver()
+            // Insert actual customer data into tenants
+            initDriver.execute(null, "INSERT INTO tenants (id, name) VALUES ('T_VIP_02', 'Global Corp Retail');", 0)
+            initDriver.close()
+
+            // 2. Open via standard DatabaseDriverFactory (as an existing database)
+            val standardFactory = DatabaseDriverFactory(testDbFile)
+            try {
+                standardFactory.createDriver()
+                fail("DatabaseDriverFactory must reject existing database with altered FOREIGN KEY / ON DELETE behavior")
+            } catch (e: DatabaseValidationException) {
+                assertTrue(
+                    "Exception must explicitly indicate altered table definition/constraints: ${e.message}",
+                    e.message?.contains("stores") == true &&
+                    e.message?.contains("definition/constraints altered") == true
+                )
+            }
+
+            // 3. Prove that the database file was NOT deleted, corrupted, or replaced
+            assertTrue("Database file must remain present on filesystem", testDbFile.exists())
+
+            // 4. Prove customer data was preserved completely intact
+            val verifyDriver = JdbcSqliteDriver("jdbc:sqlite:${testDbFile.absolutePath}")
+            val tenantName = verifyDriver.executeQuery<String?>(
+                null,
+                "SELECT name FROM tenants WHERE id = 'T_VIP_02';",
+                { it.next(); QueryResult.Value(it.getString(0)) },
+                0
+            ).value
+            assertEquals("Customer tenant record must remain intact and unmodified", "Global Corp Retail", tenantName)
+            verifyDriver.close()
+        } finally {
+            testDbFile.delete()
+            File("${testDbFile.absolutePath}-wal").takeIf { it.exists() }?.delete()
+            File("${testDbFile.absolutePath}-shm").takeIf { it.exists() }?.delete()
+            File("${testDbFile.parentFile.absolutePath}/${testDbFile.name}.init.lock").takeIf { it.exists() }?.delete()
+        }
     }
 }

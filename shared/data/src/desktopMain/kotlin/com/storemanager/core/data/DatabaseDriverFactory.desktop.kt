@@ -45,9 +45,14 @@ actual class DatabaseDriverFactory(
     internal var simulateStagingWalSidecarFailure: Boolean = false
     internal var simulateSidecarCleanupFailure: Boolean = false
     internal var sidecarDeleter: ((File) -> Boolean)? = null
+    internal var walSidecarDeleter: ((File) -> Boolean)? = null
+    internal var shmSidecarDeleter: ((File) -> Boolean)? = null
+    internal var onBeforeAtomicMove: ((stagingFile: File, stagingWal: File, stagingShm: File) -> Unit)? = null
     internal var simulateTargetCollisionDuringMove: Boolean = false
     internal var simulateTargetCollision0Byte: Boolean = false
     internal var customTriggerScript: String? = null
+    internal var customSchemaCreator: ((SqlDriver) -> Unit)? = null
+    internal var skipValidationDuringInit: Boolean = false
     internal var initDelayMs: Long = 0L
     internal var driverWrapper: ((SqlDriver) -> SqlDriver)? = null
 
@@ -145,7 +150,11 @@ actual class DatabaseDriverFactory(
             stagingDriver.execute(null, "PRAGMA synchronous = FULL;", 0)
 
             // 1. Create 55 Tables and 107 explicit unique/functional indexes from SQLDelight schema
-            StoreDatabase.Schema.create(stagingDriver)
+            if (customSchemaCreator != null) {
+                customSchemaCreator!!.invoke(stagingDriver)
+            } else {
+                StoreDatabase.Schema.create(stagingDriver)
+            }
 
             // 2. Execute 186 canonical triggers
             if (simulateTriggerFailure) {
@@ -162,8 +171,10 @@ actual class DatabaseDriverFactory(
             }
 
             // 3. Validate newly initialized staging schema before setting user_version
-            validateCountsAndIntegrity(stagingDriver)
-            validateExactSchema(stagingDriver)
+            if (!skipValidationDuringInit) {
+                validateCountsAndIntegrity(stagingDriver)
+                validateExactSchema(stagingDriver)
+            }
 
             // 4. Mark database baseline version
             stagingDriver.execute(null, "PRAGMA user_version = $EXPECTED_USER_VERSION;", 0)
@@ -191,21 +202,26 @@ actual class DatabaseDriverFactory(
             if (simulateStagingWalSidecarFailure) {
                 stagingWal.writeBytes(byteArrayOf(1, 2, 3, 4, 5))
             }
-            if (stagingWal.exists() || sidecarDeleter != null) {
+            val activeWalDeleter = walSidecarDeleter ?: sidecarDeleter
+            if (stagingWal.exists() || activeWalDeleter != null) {
                 if (stagingWal.exists() && stagingWal.length() > 0L) {
                     throw DatabaseInitializationException("Staging WAL sidecar contains uncheckpointed data (${stagingWal.length()} bytes)")
                 }
-                val deleted = sidecarDeleter?.invoke(stagingWal) ?: stagingWal.delete()
-                if (!deleted && (stagingWal.exists() || sidecarDeleter != null)) {
+                val deleted = activeWalDeleter?.invoke(stagingWal) ?: stagingWal.delete()
+                if (!deleted && (stagingWal.exists() || activeWalDeleter != null)) {
                     throw DatabaseInitializationException("Failed to remove staging WAL sidecar before publication")
                 }
             }
-            if (stagingShm.exists()) {
-                val deleted = sidecarDeleter?.invoke(stagingShm) ?: stagingShm.delete()
-                if (!deleted && stagingShm.exists()) {
+            val activeShmDeleter = shmSidecarDeleter ?: sidecarDeleter
+            if (stagingShm.exists() || activeShmDeleter != null) {
+                val deleted = activeShmDeleter?.invoke(stagingShm) ?: stagingShm.delete()
+                if (!deleted && (stagingShm.exists() || activeShmDeleter != null)) {
                     throw DatabaseInitializationException("Failed to remove staging SHM sidecar before publication")
                 }
             }
+
+            // Verify before move
+            onBeforeAtomicMove?.invoke(stagingFile, stagingWal, stagingShm)
 
             // 7. Secure Atomic Publication:
             // Check collision: Never replace an existing database file under any circumstance

@@ -1,0 +1,173 @@
+
+> Configure project :app
+WARNING: The option setting 'android.experimental.disableCompileSdkChecks=true' is experimental.
+The current default is 'false'.
+
+> Task :apps:desktopApp:clean UP-TO-DATE
+> Task :shared:design-system:cleanDesktopTest UP-TO-DATE
+> Task :shared:design-system:cleanAllTests UP-TO-DATE
+> Task :shared:data:cleanDesktopTest
+> Task :shared:domain:cleanDesktopTest UP-TO-DATE
+> Task :shared:data:cleanAllTests
+> Task :shared:domain:cleanAllTests UP-TO-DATE
+> Task :shared:domain:cleanSwiftImportFingerprintArtifacts
+> Task :shared:data:cleanSwiftImportFingerprintArtifacts
+> Task :shared:design-system:cleanSwiftImportFingerprintArtifacts
+> Task :shared:domain:clean
+> Task :shared:domain:kmpPartiallyResolvedDependenciesChecker
+> Task :shared:domain:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:design-system:clean
+> Task :shared:design-system:androidPreBuild UP-TO-DATE
+> Task :shared:design-system:preAndroidMainBuild UP-TO-DATE
+> Task :shared:design-system:generateAndroidMainEmptyResourceFiles
+> Task :shared:data:clean
+> Task :app:clean
+> Task :shared:design-system:kmpPartiallyResolvedDependenciesChecker
+> Task :shared:data:kmpPartiallyResolvedDependenciesChecker
+> Task :shared:data:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:domain:desktopProcessResources NO-SOURCE
+> Task :shared:domain:processDesktopMainResources SKIPPED
+> Task :shared:data:desktopProcessResources
+> Task :shared:data:processDesktopMainResources SKIPPED
+> Task :shared:data:desktopTestProcessResources NO-SOURCE
+> Task :shared:data:processDesktopTestResources SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :shared:domain:androidPreBuild UP-TO-DATE
+> Task :shared:domain:preAndroidMainBuild UP-TO-DATE
+> Task :shared:domain:generateAndroidMainEmptyResourceFiles
+> Task :shared:domain:compileKotlinDesktop
+> Task :shared:domain:compileDesktopMainJava NO-SOURCE
+> Task :shared:domain:desktopMainClasses
+> Task :shared:domain:desktopJar
+> Task :shared:design-system:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:design-system:convertXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :shared:design-system:copyNonXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :shared:design-system:prepareComposeResourcesTaskForAndroidMain NO-SOURCE
+> Task :shared:design-system:generateResourceAccessorsForAndroidMain NO-SOURCE
+> Task :shared:design-system:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :shared:design-system:copyNonXmlValueResourcesForCommonMain NO-SOURCE
+> Task :shared:design-system:prepareComposeResourcesTaskForCommonMain NO-SOURCE
+> Task :shared:design-system:generateResourceAccessorsForCommonMain NO-SOURCE
+> Task :shared:design-system:generateActualResourceCollectorsForAndroidMain
+> Task :shared:design-system:generateComposeResClass
+> Task :shared:design-system:generateExpectResourceCollectorsForCommonMain
+> Task :shared:domain:compileAndroidMain
+> Task :shared:domain:bundleAndroidMainClassesToCompileJar
+> Task :shared:data:generateCommonMainStoreDatabaseInterface
+> Task :app:processDebugNavigationResources
+> Task :app:parseDebugLocalResources
+
+> Task :shared:data:compileKotlinDesktop
+w: file:///app/applet/shared/data/src/commonMain/kotlin/com/storemanager/core/data/DatabaseDriverFactory.kt:5:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. Consider using the '-Xexpect-actual-classes' flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///app/applet/shared/data/src/desktopMain/kotlin/com/storemanager/core/data/DatabaseDriverFactory.desktop.kt:40:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. Consider using the '-Xexpect-actual-classes' flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+
+> Task :app:generateDebugRFile
+> Task :app:javaPreCompileDebug
+> Task :shared:design-system:writeAndroidMainAarMetadata
+> Task :shared:domain:writeAndroidMainAarMetadata
+> Task :shared:data:compileDesktopMainJava NO-SOURCE
+> Task :shared:data:desktopMainClasses
+> Task :shared:data:desktopJar
+> Task :shared:data:verifyCommonMainStoreDatabaseMigration
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :shared:design-system:processAndroidMainManifest
+> Task :shared:domain:processAndroidMainManifest
+> Task :app:compileDebugNavigationResources
+> Task :shared:design-system:compileAndroidMain
+> Task :shared:design-system:bundleAndroidMainClassesToCompileJar
+> Task :shared:data:androidPreBuild UP-TO-DATE
+> Task :shared:data:preAndroidMainBuild UP-TO-DATE
+> Task :shared:data:processAndroidMainManifest
+> Task :shared:design-system:bundleAndroidMainClassesToRuntimeJar
+> Task :shared:design-system:processAndroidMainJavaRes
+> Task :shared:domain:bundleAndroidMainClassesToRuntimeJar
+> Task :shared:domain:processAndroidMainJavaRes
+> Task :shared:design-system:bundleLibRuntimeToDirAndroidMain
+> Task :shared:data:compileTestKotlinDesktop
+> Task :shared:data:compileDesktopTestJava NO-SOURCE
+> Task :shared:data:desktopTestClasses
+> Task :app:mergeDebugResources
+
+> Task :shared:data:compileAndroidMain
+w: file:///app/applet/shared/data/src/androidMain/kotlin/com/storemanager/core/data/DatabaseDriverFactory.android.kt:5:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. Consider using the '-Xexpect-actual-classes' flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///app/applet/shared/data/src/commonMain/kotlin/com/storemanager/core/data/DatabaseDriverFactory.kt:5:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. Consider using the '-Xexpect-actual-classes' flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+
+> Task :shared:domain:bundleLibRuntimeToDirAndroidMain
+> Task :shared:design-system:mergeAndroidMainJniLibFolders
+> Task :shared:domain:mergeAndroidMainJniLibFolders
+> Task :shared:domain:mergeAndroidMainNativeLibs NO-SOURCE
+> Task :shared:design-system:mergeAndroidMainNativeLibs NO-SOURCE
+> Task :shared:domain:copyAndroidMainJniLibsProjectOnly
+> Task :shared:design-system:copyAndroidMainJniLibsProjectOnly
+> Task :apps:desktopApp:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :apps:desktopApp:convertXmlValueResourcesForMain NO-SOURCE
+> Task :apps:desktopApp:copyNonXmlValueResourcesForMain NO-SOURCE
+> Task :apps:desktopApp:prepareComposeResourcesTaskForMain NO-SOURCE
+> Task :apps:desktopApp:generateResourceAccessorsForMain SKIPPED
+> Task :apps:desktopApp:generateActualResourceCollectorsForMain SKIPPED
+> Task :apps:desktopApp:generateComposeResClass SKIPPED
+> Task :apps:desktopApp:assembleMainResources
+> Task :apps:desktopApp:processResources
+> Task :apps:desktopApp:convertXmlValueResourcesForTest NO-SOURCE
+> Task :apps:desktopApp:copyNonXmlValueResourcesForTest NO-SOURCE
+> Task :apps:desktopApp:prepareComposeResourcesTaskForTest NO-SOURCE
+> Task :apps:desktopApp:generateResourceAccessorsForTest SKIPPED
+> Task :apps:desktopApp:assembleTestResources
+> Task :apps:desktopApp:processTestResources
+> Task :shared:design-system:checkDesktopMainComposeLibrariesCompatibility
+> Task :shared:design-system:convertXmlValueResourcesForDesktopMain NO-SOURCE
+> Task :shared:design-system:copyNonXmlValueResourcesForDesktopMain NO-SOURCE
+> Task :shared:design-system:prepareComposeResourcesTaskForDesktopMain NO-SOURCE
+> Task :shared:design-system:generateResourceAccessorsForDesktopMain NO-SOURCE
+> Task :shared:design-system:generateActualResourceCollectorsForDesktopMain
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:compileDebugKotlin
+> Task :shared:design-system:compileKotlinDesktop
+> Task :shared:design-system:compileDesktopMainJava NO-SOURCE
+> Task :shared:design-system:assembleDesktopMainResources
+> Task :shared:design-system:desktopProcessResources
+> Task :shared:design-system:processDesktopMainResources SKIPPED
+> Task :shared:design-system:desktopMainClasses
+> Task :shared:design-system:desktopJar
+> Task :app:processDebugResources
+> Task :apps:desktopApp:compileKotlin FAILED
+> Task :shared:data:desktopTest
+> Task :app:compileDebugJavaWithJavac
+
+[Incubating] Problems report is available at: file:///app/applet/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':apps:desktopApp:compileKotlin' (registered by plugin 'org.jetbrains.kotlin.jvm').
+> ⛔ Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks
+  Inconsistent JVM-target compatibility detected for tasks 'compileJava' (21) and 'compileKotlin' (11).
+  Solution: Consider using JVM Toolchain: https://kotl.in/gradle/jvm/toolchain
+  Learn more about JVM-target validation: https://kotl.in/gradle/jvm/target-validation
+  Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks
+    Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks
+      Inconsistent JVM-target compatibility detected for tasks 'compileJava' (21) and 'compileKotlin' (11).
+      For more information, please refer to https://kotl.in/gradle/jvm/target-validation.
+      Possible solution: Consider using JVM Toolchain: https://kotl.in/gradle/jvm/toolchain.
+
+* Try:
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.7.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 3m 16s
+78 actionable tasks: 75 executed, 3 up-to-date
+VERIFICATION_FINISHED_EXIT_CODE=1
